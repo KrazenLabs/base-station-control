@@ -8,7 +8,7 @@ Base Station Control adds a base station status icon to the SteamVR bar. Clickin
 
 Download `BaseStationControl-Setup-<version>.exe` (Windows) or
 `BaseStationControl-Setup-<version>-linux-x64.tar.gz` (Linux) from the
-[latest release](https://github.com/KrazenLabs/BaseStationControl/releases/latest) and run it and follow the instructions.
+[latest release](https://github.com/KrazenLabs/base-station-control/releases/latest) and run it and follow the instructions.
 Super easy and only takes 30 seconds.
 
 ## Usage

@@ -4,7 +4,7 @@
   "version": "0.4.0",
   "description": "Control your SteamVR Base Stations directly from the Steam Frame.",
   "publisher": "KrazenLabs",
-  "support_url": "https://github.com/KrazenLabs/BaseStationControl/issues",
+  "support_url": "https://github.com/KrazenLabs/base-station-control/issues",
   "min_os_version": "0.4.5",
   "free_mb": 5,
   "executables": ["base-station-control"],
@@ -14,8 +14,8 @@
   "data_dirs": [".local/state/base-station-control"],
   "panel": "panel.json",
   "updates": {
-    "index": "https://github.com/KrazenLabs/BaseStationControl/releases/latest/download/base-station-control-latest.txt",
-    "base": "https://github.com/KrazenLabs/BaseStationControl/releases/latest/download/"
+    "index": "https://github.com/KrazenLabs/base-station-control/releases/latest/download/base-station-control-latest.txt",
+    "base": "https://github.com/KrazenLabs/base-station-control/releases/latest/download/"
   },
   "setup": {
     "found_it": "Click the new Base Station icon in the SteamVR bar to control your Base Stations.",
