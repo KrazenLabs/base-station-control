@@ -4,6 +4,8 @@ Control your SteamVR base stations directly from within the Steam Frame (or even
 
 Base Station Control adds a base station status icon to the SteamVR bar. Clicking it allows you to see the status of all your base stations, toggle them on and off and you can configure having them automatically turn on or off with the headset or with compatible applications (like VRChat or Resonite). No more need for a separate phone app if you use full body tracking with a Steam Frame :)
 
+![Example Screenshots](docs/collage.png)
+
 ## Install
 
 Download `BaseStationControl-Setup-<version>.exe` (Windows) or
