@@ -28,3 +28,4 @@ You can uninstall directly from the Community Apps tab in the headset.
 -------------------
 Base Station Control is an independent project. It is not made, endorsed or supported by Valve.
 Steam, SteamVR and Steam Frame are trademarks of Valve Corporation.
+The installer is made using [FrameKit](https://github.com/KrazenLabs/frame-kit).
