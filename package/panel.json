@@ -1,0 +1,8 @@
+{
+  "icon": "icon.svg",
+  "status": { "command": ["%APP%/base-station-control", "panel-status"], "interval": 5 },
+  "actions": [
+    { "id": "all-on", "label": "Activate all", "command": ["%APP%/base-station-control", "panel-action", "all-on"] },
+    { "id": "all-off", "label": "Deactivate all", "command": ["%APP%/base-station-control", "panel-action", "all-off"] }
+  ]
+}

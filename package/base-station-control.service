@@ -1,0 +1,14 @@
+[Unit]
+Description=Base Station Control: controls SteamVR Base Stations
+After=bluetooth.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/base-station-control/current/base-station-control run
+Restart=always
+RestartSec=5
+CPUAffinity=0-2
+Nice=10
+
+[Install]
+WantedBy=default.target

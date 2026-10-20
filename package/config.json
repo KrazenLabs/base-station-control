@@ -1,0 +1,17 @@
+{
+  "steam_bar_widget": true,
+  "steam_cef_port": 8080,
+  "off_mode": "sleep",
+  "add_new_stations": true,
+  "scan_pattern": "LHB-",
+  "scan_linger_seconds": 10,
+  "scan_refresh_seconds": 4,
+  "missing_after_seconds": 12,
+  "startup_scan_seconds": 15,
+  "background_scan_minutes": 0,
+  "background_scan_seconds": 8,
+  "command_attempts": 3,
+  "parallel_commands": 4,
+  "connect_timeout_seconds": 20,
+  "debug_log": false
+}
