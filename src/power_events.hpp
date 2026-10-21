@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -64,6 +65,8 @@ private:
     };
 
     void connectBus();
+    void readManagerProperty(const char* property, std::function<void(const DBusValue&)> use);
+    void catchUpWithLogind();
     void dropBus(const std::string& reason);
     void onSignal(const DBusMessage& message);
     void request(Lock& lock);
@@ -71,6 +74,7 @@ private:
     Lock& lockFor(PowerLock which);
     const Lock& lockFor(PowerLock which) const;
     void pause(Lock& lock);
+    void resume();
     void announceShutdown(const std::string& type);
     void cancelShutdown();
     void reportOnce(const std::string& message);

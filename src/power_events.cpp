@@ -17,6 +17,7 @@ namespace {
 constexpr const char* kLogind = "org.freedesktop.login1";
 constexpr const char* kLogindPath = "/org/freedesktop/login1";
 constexpr const char* kManager = "org.freedesktop.login1.Manager";
+constexpr const char* kProperties = "org.freedesktop.DBus.Properties";
 constexpr double kReconnectSeconds = 10.0;
 constexpr double kRetrySeconds = 60.0;
 constexpr double kCallTimeoutSeconds = 10.0;
@@ -99,18 +100,39 @@ void PowerEvents::connectBus() {
         bus_->addMatch(matchRule(member));
     }
     owner_.start(*bus_);
-    bus_->call(dbusMethodCall(kLogind, kLogindPath, "org.freedesktop.DBus.Properties", "Get",
-                              {DBusValue::string(kManager), DBusValue::string("InhibitDelayMaxUSec")}),
-               kCallTimeoutSeconds, [this](const DBusMessage& reply) {
+    readManagerProperty("InhibitDelayMaxUSec", [this](const DBusValue& value) {
+        if (const std::optional<uint64_t> micros = value.asUnsigned()) {
+            delayBudget_ = std::clamp(static_cast<double>(*micros) / 1e6, 0.5, 60.0);
+        }
+    });
+    catchUpWithLogind();
+    reported_.clear();
+}
+
+void PowerEvents::readManagerProperty(const char* property, std::function<void(const DBusValue&)> use) {
+    bus_->call(dbusMethodCall(kLogind, kLogindPath, kProperties, "Get",
+                              {DBusValue::string(kManager), DBusValue::string(property)}),
+               kCallTimeoutSeconds, [this, use = std::move(use)](const DBusMessage& reply) {
                    owner_.learnFrom(reply);
-                   if (reply.type != DBusMessageType::MethodReturn || reply.body.empty()) {
-                       return;
-                   }
-                   if (const std::optional<uint64_t> micros = reply.body.front().asUnsigned()) {
-                       delayBudget_ = std::clamp(static_cast<double>(*micros) / 1e6, 0.5, 60.0);
+                   if (reply.type == DBusMessageType::MethodReturn && !reply.body.empty()) {
+                       use(reply.body.front());
                    }
                });
-    reported_.clear();
+}
+
+void PowerEvents::catchUpWithLogind() {
+    readManagerProperty("PreparingForSleep", [this](const DBusValue& value) {
+        const std::optional<bool> preparing = value.asBool();
+        if (preparing && !*preparing && sleep_.paused) {
+            resume();
+        }
+    });
+    readManagerProperty("PreparingForShutdown", [this](const DBusValue& value) {
+        const std::optional<bool> preparing = value.asBool();
+        if (preparing && !*preparing) {
+            cancelShutdown();
+        }
+    });
 }
 
 void PowerEvents::dropBus(const std::string& reason) {
@@ -239,6 +261,13 @@ void PowerEvents::announceShutdown(const std::string& type) {
     events_.push_back(event);
 }
 
+void PowerEvents::resume() {
+    sleep_.paused = false;
+    PowerEvent event;
+    event.kind = PowerEventKind::Resumed;
+    events_.push_back(event);
+}
+
 void PowerEvents::cancelShutdown() {
     plainShutdownAt_ = -1.0;
     if (!shutdownAnnounced_) {
@@ -252,7 +281,11 @@ void PowerEvents::cancelShutdown() {
 }
 
 void PowerEvents::onSignal(const DBusMessage& message) {
-    if (owner_.update(message) != OwnerChange::None) {
+    const OwnerChange ownerChange = owner_.update(message);
+    if (ownerChange == OwnerChange::Appeared && bus_) {
+        catchUpWithLogind();
+    }
+    if (ownerChange != OwnerChange::None) {
         return;
     }
     if (!owner_.sentBy(message) || message.interface != kManager || message.path != kLogindPath) {
@@ -260,15 +293,14 @@ void PowerEvents::onSignal(const DBusMessage& message) {
     }
     const bool starting = firstBool(message);
     if (message.member == "PrepareForSleep") {
-        PowerEvent event;
         if (starting) {
             pause(sleep_);
+            PowerEvent event;
             event.kind = PowerEventKind::Sleeping;
+            events_.push_back(event);
         } else {
-            sleep_.paused = false;
-            event.kind = PowerEventKind::Resumed;
+            resume();
         }
-        events_.push_back(event);
     } else if (message.member == "PrepareForShutdownWithMetadata") {
         if (!starting) {
             cancelShutdown();

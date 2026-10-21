@@ -1,6 +1,7 @@
 #include "dbus_connection.hpp"
 
 #include <cerrno>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -129,13 +130,32 @@ void DBusConnection::close(const std::string& reason) {
 }
 
 void DBusConnection::closeReceivedFds() {
-    for (const int fd : receivedFds_) {
-        ::close(fd);
+    for (const ReceivedFd& received : receivedFds_) {
+        ::close(received.fd);
     }
     receivedFds_.clear();
 }
 
-void DBusConnection::receiveFds(const void* control, size_t length) {
+void DBusConnection::consumeBuffered(size_t length) {
+    buffered_.erase(0, length);
+    bufferedStart_ += length;
+}
+
+std::vector<int> DBusConnection::takeFdsWithin(uint64_t streamStart, uint64_t streamEnd) {
+    std::vector<int> fds;
+    while (!receivedFds_.empty() && receivedFds_.front().streamEnd <= streamEnd) {
+        const ReceivedFd received = receivedFds_.front();
+        receivedFds_.pop_front();
+        if (received.streamEnd > streamStart) {
+            fds.push_back(received.fd);
+        } else {
+            ::close(received.fd);
+        }
+    }
+    return fds;
+}
+
+void DBusConnection::receiveFds(const void* control, size_t length, uint64_t streamEnd) {
     msghdr header{};
     header.msg_control = const_cast<void*>(control);
     header.msg_controllen = length;
@@ -154,7 +174,7 @@ void DBusConnection::receiveFds(const void* control, size_t length) {
                 ::close(fd);
                 continue;
             }
-            receivedFds_.push_back(fd);
+            receivedFds_.push_back(ReceivedFd{fd, streamEnd});
         }
     }
 }
@@ -202,7 +222,7 @@ bool DBusConnection::readAuthLine(std::string* line) {
     }
     const size_t lineEnd = buffered_.find("\r\n");
     *line = buffered_.substr(0, lineEnd);
-    buffered_.erase(0, lineEnd + 2);
+    consumeBuffered(lineEnd + 2);
     return true;
 }
 
@@ -287,19 +307,22 @@ bool DBusConnection::decodeBuffered(std::vector<DBusMessage>* messages) {
             return true;
         }
         if (frame.status == FrameStatus::Invalid) {
-            buffered_.clear();
+            consumeBuffered(buffered_.size());
             return false;
         }
+        const uint64_t start = bufferedStart_;
         std::optional<DBusMessage> message = decodeMessage(std::string_view(buffered_).substr(0, frame.length));
-        buffered_.erase(0, frame.length);
+        consumeBuffered(frame.length);
+        std::vector<int> fds = takeFdsWithin(start, bufferedStart_);
+        const size_t wanted = message ? message->unixFds : 0;
+        if (fds.size() > wanted) {
+            closeFds(std::vector<int>(fds.begin() + static_cast<std::ptrdiff_t>(wanted), fds.end()));
+            fds.resize(wanted);
+        }
         if (!message) {
-            closeReceivedFds();
             continue;
         }
-        for (uint32_t i = 0; i < message->unixFds && !receivedFds_.empty(); ++i) {
-            message->fds.push_back(receivedFds_.front());
-            receivedFds_.pop_front();
-        }
+        message->fds = std::move(fds);
         messages->push_back(std::move(*message));
     }
 }
@@ -335,7 +358,7 @@ bool DBusConnection::processIncoming(double monotonicNow) {
         header.msg_controllen = sizeof(control);
         const ssize_t result = ::recvmsg(socket_, &header, MSG_DONTWAIT | MSG_CMSG_CLOEXEC);
         if (result >= 0 && header.msg_controllen > 0) {
-            receiveFds(control, header.msg_controllen);
+            receiveFds(control, header.msg_controllen, bufferedStart_ + buffered_.size() + static_cast<size_t>(result));
         }
         if (result > 0) {
             buffered_.append(chunk, static_cast<size_t>(result));

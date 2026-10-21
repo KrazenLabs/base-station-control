@@ -90,6 +90,7 @@ private:
     void enterStage(Operation& operation, Stage stage);
     void connect(const std::string& devicePath);
     void continueOperation(const std::string& devicePath);
+    void failResolvingOperation(const std::string& devicePath);
     void readBack(const std::string& devicePath, const std::string& characteristic);
     void emitReadBack(const std::string& devicePath, uint8_t value);
     void finishOperation(const std::string& devicePath, LinkResult result);

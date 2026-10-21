@@ -245,6 +245,7 @@ void BlueZ::applyDevice(const std::string& path, const DBusValue& properties, bo
     Device& device = devices_[path];
     bool heard = false;
     bool linkChanged = false;
+    bool linkLost = false;
     for (const DBusValue& entry : properties.items) {
         if (entry.items.size() != 2) {
             continue;
@@ -263,6 +264,7 @@ void BlueZ::applyDevice(const std::string& path, const DBusValue& properties, bo
         } else if (key == "Connected") {
             if (const std::optional<bool> connected = value.asBool()) {
                 linkChanged = linkChanged || device.connected != *connected;
+                linkLost = linkLost || (device.connected && !*connected);
                 if (device.connected != *connected && emit) {
                     debug(path + ": Connected = " + (*connected ? "true" : "false"));
                 }
@@ -288,6 +290,9 @@ void BlueZ::applyDevice(const std::string& path, const DBusValue& properties, bo
                 }
             }
         }
+    }
+    if (linkLost) {
+        failResolvingOperation(path);
     }
     if (linkChanged) {
         continueOperation(path);
@@ -579,6 +584,13 @@ void BlueZ::continueOperation(const std::string& devicePath) {
                       finishOperation(devicePath, linkSucceeded());
                   }
               });
+}
+
+void BlueZ::failResolvingOperation(const std::string& devicePath) {
+    const auto found = operations_.find(devicePath);
+    if (found != operations_.end() && found->second.stage == Stage::Resolving) {
+        finishOperation(devicePath, linkFailed(LinkFailure::ConnectFailed));
+    }
 }
 
 void BlueZ::readBack(const std::string& devicePath, const std::string& characteristic) {

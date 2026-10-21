@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "dbus_bus.hpp"
 #include "dbus_wire.hpp"
@@ -42,6 +43,11 @@ private:
         double deadline = 0.0;
     };
 
+    struct ReceivedFd {
+        int fd = -1;
+        uint64_t streamEnd = 0;
+    };
+
     explicit DBusConnection(int socket) : socket_(socket) {}
     bool authenticate(std::string* error);
     bool hello(std::string* error);
@@ -49,7 +55,9 @@ private:
     bool sendRaw(const std::string& bytes);
     bool readBlocking(std::string* into);
     bool readAuthLine(std::string* line);
-    void receiveFds(const void* control, size_t length);
+    void consumeBuffered(size_t length);
+    void receiveFds(const void* control, size_t length, uint64_t streamEnd);
+    std::vector<int> takeFdsWithin(uint64_t streamStart, uint64_t streamEnd);
     void closeReceivedFds();
     bool decodeBuffered(std::vector<DBusMessage>* messages);
     void dispatch(const DBusMessage& message);
@@ -60,7 +68,8 @@ private:
     uint32_t nextSerial_ = 1;
     double now_ = 0.0;
     std::string buffered_;
-    std::deque<int> receivedFds_;
+    uint64_t bufferedStart_ = 0;
+    std::deque<ReceivedFd> receivedFds_;
     bool passesFds_ = false;
     std::string closeReason_;
     std::map<uint32_t, PendingCall> pending_;

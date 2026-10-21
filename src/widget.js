@@ -172,16 +172,16 @@
   }
 
   function isStale() {
-    return !st.data || Date.now() - st.lastData > STALE_MS;
+    return !st.data || performance.now() - st.lastData > STALE_MS;
   }
 
   function fresh(map, key) {
     const entry = map.get(key);
-    return entry && Date.now() - entry.at <= PENDING_MS ? entry : null;
+    return entry && performance.now() - entry.at <= PENDING_MS ? entry : null;
   }
 
   function prunePending() {
-    const now = Date.now();
+    const now = performance.now();
     let pruned = false;
     [st.pending, st.optionPending, st.renamePending].forEach(function (map) {
       map.forEach(function (entry, key) {
@@ -490,7 +490,7 @@
       if (!tab || !wrapper) return;
       if (st.wantTab) {
         st.wantTab = false;
-        if (Date.now() - st.wantTabAt < WANT_TAB_MS) {
+        if (performance.now() - st.wantTabAt < WANT_TAB_MS) {
           st.tabActive = true;
           notify('tab');
         }
@@ -517,11 +517,13 @@
   }
 
   function onPopupPointerDownCapture(event) {
+    st.suppressClick = null;
     const edit = st.edit;
     if (!edit) return;
     const target = event.target;
     const row = edit.input.closest('.bsc-row');
     if (row && target && row.contains(target)) return;
+    st.suppressClick = { until: performance.now() + SUPPRESS_CLICK_MS };
     finishEdit(true);
   }
 
@@ -586,7 +588,7 @@
     }
     if (!open) {
       st.wantTab = true;
-      st.wantTabAt = Date.now();
+      st.wantTabAt = performance.now();
     }
     notify('icon');
   }
@@ -605,7 +607,7 @@
     action.session = st.session;
     action.seq = ++st.seq;
     st.queue.push(action);
-    const now = Date.now();
+    const now = performance.now();
     if (action.op === OP.SET) {
       st.pending.set(action.id, { on: action.on, at: now, seq: action.seq });
     } else if (action.op === OP.ALL_ON || action.op === OP.ALL_OFF) {
@@ -629,7 +631,7 @@
     const suppressed = st.suppressClick;
     if (suppressed) {
       st.suppressClick = null;
-      if (Date.now() < suppressed.until) return;
+      if (performance.now() < suppressed.until) return;
     }
     const edit = st.edit;
     if (edit && edit.input.closest('.bsc-row') && edit.input.closest('.bsc-row').contains(target)) {
@@ -685,7 +687,7 @@
     if (!press) return;
     st.press = null;
     press.row.classList.remove('bsc-pressing');
-    st.suppressClick = { until: Date.now() + SUPPRESS_CLICK_MS };
+    st.suppressClick = { until: performance.now() + SUPPRESS_CLICK_MS };
     startEdit(press.id);
   }
 
@@ -1266,7 +1268,7 @@
   function update(data) {
     if (data) {
       st.data = data;
-      st.lastData = Date.now();
+      st.lastData = performance.now();
       const handled = data.handled || {};
       if (handled.session === st.session) {
         clearHandled(st.pending, handled);
